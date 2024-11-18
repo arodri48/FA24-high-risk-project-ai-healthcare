@@ -1,58 +1,44 @@
-from torch import nn
 import torch
+import torch.nn as nn
+from torch import Tensor
 
-class MultimodalClassifier(nn.Module):
-    def __init__(self, num_categorical_features: int, num_classes: int):
-        super(MultimodalClassifier, self).__init__()
 
-        # Image branch: Pretrained ResNet model for image features
-        self.image_branch = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=7 // 2),  # Start with larger receptive field
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+class MriClassifier(nn.Module):
+    def __init__(self):
+        super(MriClassifier, self).__init__()
+        self.relu = nn.ReLU()
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+        # Convolutional layers with 3D operations
+        self.conv1 = nn.Conv3d(1, 16, kernel_size=7, stride=2, padding=7 // 2, bias=False)
+        self.conv2 = nn.Conv3d(16, 32, kernel_size=3, stride=1, padding=3 // 2, bias=False)
+        self.conv3 = nn.Conv3d(32, 64, kernel_size=3, stride=1, padding=3 // 2, bias=False)
 
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+        # Batch normalization for 3D
+        self.bn1 = nn.BatchNorm3d(16)
+        self.bn2 = nn.BatchNorm3d(32)
+        self.bn3 = nn.BatchNorm3d(64)
 
-            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),  # Optional additional conv layer
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1)),  # Global pooling to reduce output to (batch, 512, 1, 1)
-            nn.Flatten()
-        )
+        # Adaptive pooling to reduce to a fixed-size representation
+        self.pool = nn.AdaptiveAvgPool3d((1, 1, 1))
 
-        # Categorical branch: Simple MLP for categorical features
-        self.categorical_branch = nn.Sequential(
-            nn.Linear(num_categorical_features, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32)
-        )
+        # Fully connected layer for binary classification
+        self.fc = nn.Linear(64, 1)
+        # zero initialization of the fully connected layer
+        self.fc.weight.data.zero_()
 
-        # Combined branch: Combine both branches and add further dense layers
-        self.combined_branch = nn.Sequential(
-            nn.Linear(num_features + 32, 128),
-            nn.ReLU(),
-            nn.Linear(128, num_classes)
-        )
+    def forward(self, x: Tensor):
+        # Pass through convolutional layers with ReLU activation and batch norm
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.bn2(self.conv2(x)))
+        x = self.relu(self.bn3(self.conv3(x)))
 
-    def forward(self, image, categorical):
-        # Forward pass through the image branch
-        image_features = self.image_branch(image)  # (batch_size, num_features)
+        # Adaptive pooling to reduce to a 1x1x1 feature map
+        x = self.pool(x)
 
-        # Forward pass through the categorical branch
-        categorical_features = self.categorical_branch(categorical)  # (batch_size, 32)
+        # Flatten to a 1D vector for the fully connected layer
+        x = torch.flatten(x, start_dim=1)
 
-        # Concatenate the features from both branches
-        combined_features = torch.cat((image_features, categorical_features), dim=1)
+        # Final fully connected layer for binary output
+        x = self.fc(x)
+        return x
 
-        # Forward pass through the combined branch
-        output = self.combined_branch(combined_features)
-        return output
