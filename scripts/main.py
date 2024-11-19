@@ -47,13 +47,13 @@ def get_image_ids(json_dir: str, patient_data: list[dict]) -> list[dict]:
     return final_results
 
 def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsDataset, batch_size: int,
-                         epochs: int, pos_weight: float) -> None:
+                         epochs: int) -> None:
     # Create dataloaders for training and testing
     train_loader = SubjectsLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = SubjectsLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     model = MriClassifier().to(DEVICE)
-    loss = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight).to(DEVICE))
+    loss = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters())
 
     for epoch in range(epochs):
@@ -69,8 +69,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
             optimizer.step()
             train_loss += loss_val.item()
         train_loss /= len(train_loader)
-        if epoch % 10 == 0:
-            print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss}")
+        print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss}")
 
     model.eval()
     correct = 0
@@ -89,27 +88,29 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
 
 
 def main(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
-         epochs: int = 10, batch_size: int = 32) -> None:
+         epochs: int = 10, batch_size: int = 1) -> None:
+    print("Querying patient data from database")
     with Db(db_fpath) as db:
         query_results = db.query(get_patients_with_head_mri_images())
-
+    print()
+    print("Getting image IDs from JSON files")
     final_results = get_image_ids(json_dir, query_results)
 
+    print()
+    print("Splitting data into training and testing sets")
     labels: list[int] = [result['stroke_flag'] for result in final_results]
-
     x_train, x_test, y_train, y_test = train_test_split(final_results, labels, test_size=test_split,
                                                         random_state=42)
-
     train_dataset = MriDataset(x_train, dicom_dir, TRANSFORM_PIPELINE).to_subject_dataset()
-    test_dataset = MriDataset(x_test, dicom_dir, TRANSFORM_PIPELINE).to_subject_dataset()
+    test_dataset = MriDataset(x_test, dicom_dir).to_subject_dataset()
 
-    pos_weight = (len(labels) - sum(labels)) / sum(labels)
-
-    train_evaluate_model(train_dataset, test_dataset, batch_size, epochs, pos_weight)
+    print()
+    print("Training and evaluating model")
+    train_evaluate_model(train_dataset, test_dataset, batch_size, epochs)
 
 
 if __name__ == "__main__":
     sqlite_fpath = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/db_dir/coherent_data.db"
     mri_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/dicom"
     fhir_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/fhir"
-    main(sqlite_fpath, mri_dir, fhir_dir, batch_size=8)
+    main(sqlite_fpath, mri_dir, fhir_dir, batch_size=1)
