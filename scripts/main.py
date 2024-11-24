@@ -95,11 +95,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
 
     return model, conf_matrix
 
-
-
-
-def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
-         epochs: int = 10, batch_size: int = 2) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
+def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1) -> tuple[SubjectsDataset, SubjectsDataset]:
     print("Querying patient data from database")
     with Db(db_fpath) as db:
         query_results = db.query(get_patients_with_head_mri_images())
@@ -114,6 +110,12 @@ def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test
                                                         random_state=42)
     train_dataset = MriDataset(x_train, dicom_dir, TRANSFORM_PIPELINE).to_subject_dataset()
     test_dataset = MriDataset(x_test, dicom_dir).to_subject_dataset()
+
+    return train_dataset, test_dataset
+
+def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
+         epochs: int = 10, batch_size: int = 2) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
+    train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, test_split)
 
     print()
     print("Training and evaluating model")
