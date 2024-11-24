@@ -80,9 +80,9 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
     all_predictions = []
 
     with torch.no_grad():
-        for images, labels in test_loader:
-            images = images.to(DEVICE)
-            labels = labels.to(DEVICE)
+        for i, (subjects_batch) in enumerate(test_loader):
+            images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
+            labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
             outputs = model(images)
             predicted = torch.round(torch.sigmoid(outputs))  # Assuming binary classification
             all_predictions.extend(predicted.cpu().numpy().flatten())  # Flatten to 1D array
@@ -95,7 +95,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
 
     return model, conf_matrix
 
-def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1) -> tuple[SubjectsDataset, SubjectsDataset]:
+def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float) -> tuple[SubjectsDataset, SubjectsDataset]:
     print("Querying patient data from database")
     with Db(db_fpath) as db:
         query_results = db.query(get_patients_with_head_mri_images())
@@ -113,8 +113,8 @@ def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: fl
 
     return train_dataset, test_dataset
 
-def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
-         epochs: int = 10, batch_size: int = 2) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
+def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.2,
+         epochs: int = 10, batch_size: int = 4) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
     train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, test_split)
 
     print()
@@ -128,4 +128,4 @@ if __name__ == "__main__":
     sqlite_fpath = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/db_dir/coherent_data.db"
     mri_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/dicom"
     fhir_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/fhir"
-    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir)
+    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir, epochs=1)
