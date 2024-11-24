@@ -1,8 +1,11 @@
 import json
 import os
 
+import numpy as np
 import torch
 import torchio
+from numpy import ndarray
+from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 from torchio import RandomFlip, RandomAffine, RandomElasticDeformation, RandomNoise, SubjectsDataset, SubjectsLoader
 
@@ -47,7 +50,7 @@ def get_image_ids(json_dir: str, patient_data: list[dict]) -> list[dict]:
     return final_results
 
 def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsDataset, batch_size: int,
-                         epochs: int) -> None:
+                         epochs: int) -> tuple[MriClassifier, ndarray]:
     # Create dataloaders for training and testing
     train_loader = SubjectsLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = SubjectsLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -72,23 +75,30 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
         print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss}")
 
     model.eval()
-    correct = 0
-    total = 0
+    all_labels = []
+    all_predictions = []
+
     with torch.no_grad():
         for images, labels in test_loader:
             images = images.to(DEVICE)
             labels = labels.to(DEVICE)
             outputs = model(images)
-            predicted = torch.round(torch.sigmoid(outputs))
-            total += labels.size(0)
-            correct += (predicted == labels.unsqueeze(1)).sum().item()
-    print(f"Accuracy: {correct / total}")
-    print()
+            predicted = torch.round(torch.sigmoid(outputs))  # Assuming binary classification
+            all_predictions.extend(predicted.cpu().numpy().flatten())  # Flatten to 1D array
+            all_labels.extend(labels.cpu().numpy())  # Collect ground truth labels
+
+    # Compute confusion matrix
+    conf_matrix = confusion_matrix(all_labels, all_predictions)
+    print("Confusion Matrix:")
+    print(conf_matrix)
+
+    return model, conf_matrix
 
 
 
-def main(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
-         epochs: int = 10, batch_size: int = 1) -> None:
+
+def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
+         epochs: int = 10, batch_size: int = 2) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
     print("Querying patient data from database")
     with Db(db_fpath) as db:
         query_results = db.query(get_patients_with_head_mri_images())
@@ -106,11 +116,13 @@ def main(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.1,
 
     print()
     print("Training and evaluating model")
-    train_evaluate_model(train_dataset, test_dataset, batch_size, epochs)
+    model, cf_matrix = train_evaluate_model(train_dataset, test_dataset, batch_size, epochs)
+
+    return train_dataset, test_dataset, model, cf_matrix
 
 
 if __name__ == "__main__":
     sqlite_fpath = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/db_dir/coherent_data.db"
     mri_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/dicom"
     fhir_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/fhir"
-    main(sqlite_fpath, mri_dir, fhir_dir, batch_size=1)
+    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir)
