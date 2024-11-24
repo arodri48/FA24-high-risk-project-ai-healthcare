@@ -63,6 +63,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
         model.train()
         train_loss = 0
         for i, (subjects_batch) in enumerate(train_loader):
+            print(f"Batch {i + 1}/{len(train_loader)} for epoch {epoch + 1}/{epochs}")
             optimizer.zero_grad()
             images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
             labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
