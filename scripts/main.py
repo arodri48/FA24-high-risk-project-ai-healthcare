@@ -2,6 +2,7 @@ import json
 import os
 
 import numpy as np
+import re
 import torch
 import torchio
 from numpy import ndarray
@@ -50,19 +51,39 @@ def get_image_ids(json_dir: str, patient_data: list[dict]) -> list[dict]:
     return final_results
 
 def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsDataset, batch_size: int,
-                         epochs: int) -> tuple[MriClassifier, ndarray]:
+                         epochs: int, checkpoint_dir: str, checkpoint_file: str = None) -> tuple[MriClassifier, ndarray]:
     # Create dataloaders for training and testing
     train_loader = SubjectsLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = SubjectsLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
+    start_epoch = 0
+    start_batch = -1
     model = MriClassifier().to(DEVICE)
-    loss = torch.nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters())
+    if checkpoint_file != None:
+        if os.path.exists(checkpoint_file):
+            # Checkpoint format:
+            # checkpoint_{epoch_num}_{batch_num}.pth     0-indexed for both
+            match = re.match(r"checkpoint_(\d+)_(\d+).pth", checkpoint_file)
 
-    for epoch in range(epochs):
+            if match:
+                start_epoch = int(match.group(1))
+                start_batch = int(match.group(2))
+                checkpoint = torch.load(checkpoint_file)
+                model.load_state_dict(checkpoint['model'])
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            else:
+                print("Invalid checkpoint file format. Starting from scratch")
+        else:
+            print("Checkpoint file invalid. Starting from scratch.")
+    
+    loss = torch.nn.BCEWithLogitsLoss()
+
+    for epoch in range(start_epoch, epochs):
         model.train()
         train_loss = 0
         for i, (subjects_batch) in enumerate(train_loader):
+            while (i <= start_batch):
+                continue
             print(f"Batch {i + 1}/{len(train_loader)} for epoch {epoch + 1}/{epochs}")
             optimizer.zero_grad()
             images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
@@ -72,6 +93,12 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
             loss_val.backward()
             optimizer.step()
             train_loss += loss_val.item()
+            if i % 5 == 0:
+                if os.path.exists(checkpoint_dir) and os.path.isdir(checkpoint_dir):
+                    check = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
+                    check_file = checkpoint_dir.rstrip('/') + '/checkpoint_' + str(epoch) + '_' +  str(i) + '.pth'
+                    torch.save(check, check_file)
+        start_batch = -1
         train_loss /= len(train_loader)
         print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss}")
 
@@ -113,13 +140,13 @@ def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: fl
 
     return train_dataset, test_dataset
 
-def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, test_split: float = 0.2,
-         epochs: int = 10, batch_size: int = 4) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
+def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, checkpoint_dir: str, checkpoint_file: str = None, test_split: float = 0.2,
+                              epochs: int = 10, batch_size: int = 4) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
     train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, test_split)
 
     print()
     print("Training and evaluating model")
-    model, cf_matrix = train_evaluate_model(train_dataset, test_dataset, batch_size, epochs)
+    model, cf_matrix = train_evaluate_model(train_dataset, test_dataset, batch_size, epochs, checkpoint_dir, checkpoint_file)
 
     return train_dataset, test_dataset, model, cf_matrix
 
