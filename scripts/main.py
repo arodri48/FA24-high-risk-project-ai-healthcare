@@ -8,7 +8,8 @@ import torchio
 from numpy import ndarray
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
-from torchio import RandomFlip, RandomAffine, RandomElasticDeformation, RandomNoise, SubjectsDataset, SubjectsLoader
+from torchio import RandomFlip, RandomAffine, RandomElasticDeformation, RandomNoise, SubjectsDataset, SubjectsLoader, \
+    Resample, ZNormalization
 
 from library.classifier import MriClassifier
 from library.dataset import MriDataset
@@ -18,6 +19,8 @@ from library.queries import get_patients_with_head_mri_images
 DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.mps.is_available() else 'cpu'
 
 TRANSFORM_PIPELINE = torchio.Compose([
+        Resample((1.0, 1.0, 1.0)),  # Resample to isotropic spacing
+        ZNormalization(),
         RandomFlip(axes=('lf',), flip_probability=0.5),  # Left-right flipping
         RandomAffine(degrees=15, scales=(0.9, 1.1)),  # Rotation and scaling
         RandomElasticDeformation(num_control_points=7, max_displacement=(7, 7, 7)),  # Elastic deformation

@@ -4,9 +4,10 @@ from torch import Tensor
 
 
 class MriClassifier(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout: float = 0.5):
         super(MriClassifier, self).__init__()
         self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
 
         # Convolutional layers with 3D operations
         self.conv1 = nn.Conv3d(1, 8, kernel_size=7, stride=2, padding=7 // 2, bias=False)
@@ -20,14 +21,15 @@ class MriClassifier(nn.Module):
         self.pool = nn.AdaptiveAvgPool3d((1, 1, 1))
 
         # Fully connected layer for binary classification
-        self.fc = nn.Linear(16, 1)
+        self.fc1 = nn.Linear(16, 32)
+        self.fc2 = nn.Linear(32, 1)
         # zero initialization of the fully connected layer
-        self.fc.weight.data.zero_()
+        self.fc2.weight.data.zero_()
 
     def forward(self, x: Tensor):
         # Pass through convolutional layers with ReLU activation and batch norm
         x = self.relu(self.bn1(self.conv1(x)))
-        x = self.relu(self.bn2(self.conv2(x)))
+        x = self.bn2(self.conv2(x))
 
         # Adaptive pooling to reduce to a 1x1x1 feature map
         x = self.pool(x)
@@ -36,6 +38,9 @@ class MriClassifier(nn.Module):
         x = torch.flatten(x, start_dim=1)
 
         # Final fully connected layer for binary output
-        x = self.fc(x)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
         return x
 

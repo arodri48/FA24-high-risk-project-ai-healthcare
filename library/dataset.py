@@ -4,9 +4,13 @@ import torchio as tio
 import torch
 from pydicom import dcmread
 
+DEFAULT_TRANSFORM = tio.Compose([
+    tio.Resample((1, 1, 1)),  # Resample to isotropic voxel size of 1mm
+    tio.ZNormalization(),     # Normalize intensities (mean 0, std 1)
+])
 
 class MriDataset:
-    def __init__(self, patient_data: List[dict], dicom_dir: str, transforms=None):
+    def __init__(self, patient_data: List[dict], dicom_dir: str, transforms=DEFAULT_TRANSFORM):
         self.dicom_dir = dicom_dir
         self.patients = patient_data
         self.transforms = transforms
