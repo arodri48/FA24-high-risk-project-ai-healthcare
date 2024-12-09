@@ -137,7 +137,7 @@ def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: fl
     print("Splitting data into training and testing sets")
     labels: list[int] = [result['stroke_flag'] for result in final_results]
     x_train, x_test, y_train, y_test = train_test_split(final_results, labels, test_size=test_split,
-                                                        random_state=42)
+                                                        random_state=42, stratify=labels)
     train_dataset = MriDataset(x_train, dicom_dir, TRANSFORM_PIPELINE).to_subject_dataset()
     test_dataset = MriDataset(x_test, dicom_dir).to_subject_dataset()
 
