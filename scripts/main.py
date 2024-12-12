@@ -34,14 +34,13 @@ def get_image_ids(json_dir: str, patient_data: list[dict]) -> list[dict]:
         image_id = None
         first_name = result['FIRST'].replace(" ", "_")
         last_name = result['LAST'].replace(" ", "_")
-        try:
-            full_filepath = os.path.join(json_dir, f"{first_name}_{last_name}_{result['Id']}.json")
-            if os.path.exists(full_filepath):
-                patient_data = json.load(open(full_filepath))
-            else:
-                print(f"Patient {first_name} {last_name} does not have FHIR data at {full_filepath}")
-        except FileNotFoundError:
-            print(f"Patient {first_name} {last_name} does not have FHIR data")
+        full_filepath = os.path.join(json_dir, f"{first_name}_{last_name}_{result['Id']}.json")
+        if os.path.exists(full_filepath):
+            patient_data = json.load(open(full_filepath))
+        else:
+            print(f"Patient {first_name} {last_name} does not have FHIR data at {full_filepath}")
+            if not os.path.exists(json_dir):
+                print(f"Directory {json_dir} does not exist")
             continue
         for resource in patient_data['entry']:
             if resource['resource']['resourceType'] == 'ImagingStudy':
