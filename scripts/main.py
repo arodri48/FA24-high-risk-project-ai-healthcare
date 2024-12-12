@@ -35,7 +35,11 @@ def get_image_ids(json_dir: str, patient_data: list[dict]) -> list[dict]:
         first_name = result['FIRST'].replace(" ", "_")
         last_name = result['LAST'].replace(" ", "_")
         try:
-            patient_data = json.load(open(os.path.join(json_dir, f"{first_name}_{last_name}_{result['Id']}.json")))
+            full_filepath = os.path.join(json_dir, f"{first_name}_{last_name}_{result['Id']}.json")
+            if os.path.exists(full_filepath):
+                patient_data = json.load(open(full_filepath))
+            else:
+                print(f"Patient {first_name} {last_name} does not have FHIR data at {full_filepath}")
         except FileNotFoundError:
             print(f"Patient {first_name} {last_name} does not have FHIR data")
             continue
@@ -158,4 +162,5 @@ if __name__ == "__main__":
     sqlite_fpath = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/db_dir/coherent_data.db"
     mri_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/dicom"
     fhir_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/fhir"
-    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir, epochs=1)
+    checkpoint_dir = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/checkpoints"
+    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir, checkpoint_dir, epochs=1)
