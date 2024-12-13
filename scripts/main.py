@@ -156,7 +156,7 @@ def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, chec
 def test_model(db_fpath: str, dicom_dir: str, json_dir: str, model_file: str, batch_size: int = 4):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = MriClassifier().to(device)
-    model.load_state_dict(torch.load("model_file.pth"))
+    model.load_state_dict(torch.load(model_file))
     model.eval()
 
     train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, 0.9)
