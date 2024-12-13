@@ -61,7 +61,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
     start_epoch = 0
     start_batch = -1
     model = MriClassifier().to(DEVICE)
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
     if checkpoint_file != None:
         if os.path.exists(checkpoint_file):
             # Checkpoint format:
@@ -92,7 +92,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
             images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
             labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
             outputs = model(images)
-            loss_val = loss(outputs, labels.unsqueeze(1).float())
+            loss_val = loss(outputs, labels.float())
             loss_val.backward()
             optimizer.step()
             train_loss += loss_val.item()
@@ -144,7 +144,7 @@ def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: fl
     return train_dataset, test_dataset
 
 def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, checkpoint_dir: str, checkpoint_file: str = None, test_split: float = 0.2,
-                              epochs: int = 10, batch_size: int = 4) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
+                              epochs: int = 10, batch_size: int = 32) -> tuple[SubjectsDataset, SubjectsDataset, MriClassifier, ndarray]:
     train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, test_split)
 
     print()
@@ -153,12 +153,12 @@ def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, chec
 
     return train_dataset, test_dataset, model, cf_matrix
 
-def test_model(db_fpath: str, dicom_dir: str, json_dir: str, model_file: str, batch_size: int = 4):
+def test_model(db_fpath: str, dicom_dir: str, json_dir: str, model_file: str, batch_size: int = 32):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = MriClassifier().to(device)
     loaded = torch.load(model_file)
     model.load_state_dict(loaded['model'])
-    
+
     model.eval()
 
     train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, 0.9)

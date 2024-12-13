@@ -6,23 +6,23 @@ from torch import Tensor
 class MriClassifier(nn.Module):
     def __init__(self, dropout: float = 0.5):
         super(MriClassifier, self).__init__()
-        self.relu = nn.ReLU()
+        self.relu = nn.LeakyReLU(negative_slope=0.01)
         self.dropout = nn.Dropout(dropout)
 
         # Convolutional layers with 3D operations
-        self.conv1 = nn.Conv3d(1, 8, kernel_size=7, stride=2, padding=7 // 2, bias=False)
-        self.conv2 = nn.Conv3d(8, 16, kernel_size=3, stride=1, padding=3 // 2, bias=False)
+        self.conv1 = nn.Conv3d(1, 16, kernel_size=7, stride=2, padding=7 // 2, bias=False)
+        self.conv2 = nn.Conv3d(16, 32, kernel_size=3, stride=1, padding=3 // 2, bias=False)
 
         # Batch normalization for 3D
-        self.bn1 = nn.BatchNorm3d(8)
-        self.bn2 = nn.BatchNorm3d(16)
+        self.bn1 = nn.BatchNorm3d(16)
+        self.bn2 = nn.BatchNorm3d(32)
 
         # Adaptive pooling to reduce to a fixed-size representation
         self.pool = nn.AdaptiveAvgPool3d((1, 1, 1))
 
         # Fully connected layer for binary classification
-        self.fc1 = nn.Linear(16, 32)
-        self.fc2 = nn.Linear(32, 1)
+        self.fc1 = nn.Linear(32, 128)
+        self.fc2 = nn.Linear(128, 1)
         # zero initialization of the fully connected layer
         self.fc2.weight.data.zero_()
 
