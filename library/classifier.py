@@ -24,9 +24,9 @@ class MriClassifier(nn.Module):
         self.fc2 = nn.Linear(64, 1)
         # zero initialization of the fully connected layer
 
-        init.xavier_normal_(self.fc1.weight)
-        init.xavier_normal_(self.conv1.weight)
-        init.xavier_normal_(self.cov2.weight)
+        nn.init.xavier_normal_(self.fc1.weight)
+        nn.init.xavier_normal_(self.conv1.weight)
+        nn.init.xavier_normal_(self.cov2.weight)
 
         self.fc2.weight.data.zero_()
 
