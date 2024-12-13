@@ -61,7 +61,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
     start_epoch = 0
     start_batch = -1
     model = MriClassifier().to(DEVICE)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
     if checkpoint_file != None:
         if os.path.exists(checkpoint_file):
             # Checkpoint format:
