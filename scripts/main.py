@@ -61,7 +61,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
     start_epoch = 0
     start_batch = -1
     model = MriClassifier().to(DEVICE)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     if checkpoint_file != None:
         if os.path.exists(checkpoint_file):
             # Checkpoint format:
@@ -84,6 +84,8 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
     for epoch in range(start_epoch, epochs):
         model.train()
         train_loss = 0
+        correct = 0
+        total = 0
         for i, (subjects_batch) in enumerate(train_loader):
             while (i <= start_batch):
                 continue
@@ -92,10 +94,21 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
             images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
             labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
             outputs = model(images)
+
+            probs = torch.sigmoid(outputs).squeeze(1)
+            predicted_labels = (probs >= 0.5).int()
+            correct += (predicted_labels == labels).sum().item()
+            total += labels.size(0)
+
             loss_val = loss(outputs, labels.float())
+
             loss_val.backward()
             optimizer.step()
             train_loss += loss_val.item()
+
+
+
+            correct += (p)
             if i % 5 == 0:
                 if os.path.exists(checkpoint_dir) and os.path.isdir(checkpoint_dir):
                     check = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
@@ -104,6 +117,31 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
         start_batch = -1
         train_loss /= len(train_loader)
         print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss}")
+        print(f"Epoch {epoch + 1}/{epochs} - Accuracy: {correct / total}")
+
+
+
+        model.eval()
+        all_labels = []
+        all_predictions = []
+
+        test_total = 0
+        test_correct = 0
+        positive_preds = 0
+        with torch.no_grad():
+            for i, (subjects_batch) in enumerate(test_loader):
+                images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
+                labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
+                outputs = model(images)
+                probs = torch.sigmoid(outputs).squeeze(1)
+                predicted_labels = (probs >= 0.5).int()
+                test_correct += (predicted_labels == labels).sum().item()
+                positive_preds += (predicted_labels == 1).sum().item()
+
+                test_total += labels.size(0)
+        print(f"Epoch {epoch + 1}/{epochs} - Test Accuracy: {test_correct / test_total}")
+        print(f"Epoch {epoch + 1}/{epochs} - Positive Predictions: {positive_preds}")
+
 
     model.eval()
     all_labels = []
