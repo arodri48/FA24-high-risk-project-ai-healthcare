@@ -106,14 +106,6 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
             optimizer.step()
             train_loss += loss_val.item()
 
-
-
-            correct += (p)
-            if i % 5 == 0:
-                if os.path.exists(checkpoint_dir) and os.path.isdir(checkpoint_dir):
-                    check = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
-                    check_file = checkpoint_dir.rstrip('/') + '/checkpoint_' + str(epoch) + '_' +  str(i) + '.pth'
-                    torch.save(check, check_file)
         start_batch = -1
         train_loss /= len(train_loader)
         print(f"Epoch {epoch + 1}/{epochs} - Train Loss: {train_loss}")
@@ -142,6 +134,11 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
         print(f"Epoch {epoch + 1}/{epochs} - Test Accuracy: {test_correct / test_total}")
         print(f"Epoch {epoch + 1}/{epochs} - Positive Predictions: {positive_preds}")
 
+
+        if os.path.exists(checkpoint_dir) and os.path.isdir(checkpoint_dir):
+            check = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
+            check_file = checkpoint_dir.rstrip('/') + '/checkpoint_' + str(epoch) + '.pth'
+            torch.save(check, check_file)
 
     model.eval()
     all_labels = []
