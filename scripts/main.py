@@ -100,7 +100,7 @@ def train_evaluate_model(train_dataset: SubjectsDataset, test_dataset: SubjectsD
             correct += (predicted_labels == labels).sum().item()
             total += labels.size(0)
 
-            loss_val = loss(outputs, labels.float())
+            loss_val = loss(outputs.squeeze(1), labels.float())
 
             loss_val.backward()
             optimizer.step()
