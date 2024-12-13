@@ -156,6 +156,29 @@ def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, chec
 
     return train_dataset, test_dataset, model, cf_matrix
 
+def test_model(db_fpath: str, dicom_dir: str, json_dir: str, model_file: str, batch_size: int = 4):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = MriClassifier().to(device)
+    model.load_state_dict(torch.load("model_file.pth"))
+    model.eval()
+
+    train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, test_split)
+
+    test_loader = SubjectsLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for i, (subjects_batch) in enumerate(test_loader):
+            images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
+            labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
+            outputs = model(images)
+            print(outputs)
+            print(labels)
+            return -1
+            predicted = torch.max(outputs, 1)  # Assuming binary classification
+            all_predictions.extend(predicted.cpu().numpy().flatten())  # Flatten to 1D array
+            all_labels.extend(labels.cpu().numpy())  # Collect ground truth labels
 
 if __name__ == "__main__":
     sqlite_fpath = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/db_dir/coherent_data.db"
