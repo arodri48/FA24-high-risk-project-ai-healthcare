@@ -26,7 +26,7 @@ class MriClassifier(nn.Module):
 
         nn.init.xavier_normal_(self.fc1.weight)
         nn.init.xavier_normal_(self.conv1.weight)
-        nn.init.xavier_normal_(self.cov2.weight)
+        nn.init.xavier_normal_(self.conv2.weight)
 
         self.fc2.weight.data.zero_()
 
