@@ -34,13 +34,10 @@ def get_image_ids(json_dir: str, patient_data: list[dict]) -> list[dict]:
         image_id = None
         first_name = result['FIRST'].replace(" ", "_")
         last_name = result['LAST'].replace(" ", "_")
-        full_filepath = os.path.join(json_dir, f"{first_name}_{last_name}_{result['Id']}.json")
-        if os.path.exists(full_filepath):
-            patient_data = json.load(open(full_filepath))
-        else:
-            print(f"Patient {first_name} {last_name} does not have FHIR data at {full_filepath}")
-            if not os.path.exists(json_dir):
-                print(f"Directory {json_dir} does not exist")
+        try:
+            patient_data = json.load(open(os.path.join(json_dir, f"{first_name}_{last_name}_{result['Id']}.json")))
+        except FileNotFoundError:
+            print(f"Patient {first_name} {last_name} does not have FHIR data")
             continue
         for resource in patient_data['entry']:
             if resource['resource']['resourceType'] == 'ImagingStudy':
@@ -140,7 +137,7 @@ def create_datasets(db_fpath: str, dicom_dir: str, json_dir: str, test_split: fl
     print("Splitting data into training and testing sets")
     labels: list[int] = [result['stroke_flag'] for result in final_results]
     x_train, x_test, y_train, y_test = train_test_split(final_results, labels, test_size=test_split,
-                                                        random_state=42, stratify=labels)
+                                                        random_state=42)
     train_dataset = MriDataset(x_train, dicom_dir, TRANSFORM_PIPELINE).to_subject_dataset()
     test_dataset = MriDataset(x_test, dicom_dir).to_subject_dataset()
 
@@ -156,33 +153,9 @@ def create_datasets_and_model(db_fpath: str, dicom_dir: str, json_dir: str, chec
 
     return train_dataset, test_dataset, model, cf_matrix
 
-def test_model(db_fpath: str, dicom_dir: str, json_dir: str, model_file: str, batch_size: int = 4):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = MriClassifier().to(device)
-    model.load_state_dict(torch.load("model_file.pth"))
-    model.eval()
-
-    train_dataset, test_dataset = create_datasets(db_fpath, dicom_dir, json_dir, test_split)
-
-    test_loader = SubjectsLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for i, (subjects_batch) in enumerate(test_loader):
-            images = subjects_batch['mri'][torchio.DATA].to(DEVICE)
-            labels = torch.tensor(subjects_batch['stroke_flag']).to(DEVICE)
-            outputs = model(images)
-            print(outputs)
-            print(labels)
-            return -1
-            predicted = torch.max(outputs, 1)  # Assuming binary classification
-            all_predictions.extend(predicted.cpu().numpy().flatten())  # Flatten to 1D array
-            all_labels.extend(labels.cpu().numpy())  # Collect ground truth labels
 
 if __name__ == "__main__":
     sqlite_fpath = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/db_dir/coherent_data.db"
     mri_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/dicom"
     fhir_dir = "/Users/arodriguez/Downloads/coherent-11-07-2022/fhir"
-    checkpoint_dir = "/Users/arodriguez/Desktop/FA24-high-risk-project-ai-healthcare/checkpoints"
-    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir, checkpoint_dir, epochs=1)
+    create_datasets_and_model(sqlite_fpath, mri_dir, fhir_dir, epochs=1)
